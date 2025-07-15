@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ name }} - Resume</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: #f7f7f7; }
+        .container { max-width: 800px; margin: 30px auto; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px #0001; padding: 32px; }
+        .header { display: flex; flex-direction: column; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 16px; }
+        .name { font-size: 2.2em; font-weight: bold; color: #222; }
+        .contact { color: #555; margin-top: 8px; font-size: 1em; }
+        .section { margin-top: 32px; }
+        .section-title { color: #0a6; font-size: 1.2em; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+        .skills { display: flex; flex-wrap: wrap; gap: 8px; }
+        .skill { background: #e0f7fa; color: #00796b; padding: 4px 12px; border-radius: 12px; font-size: 0.95em; }
+        .projects { margin-top: 8px; }
+        @media (max-width: 600px) {
+            .container { padding: 10px; }
+            .header { padding-bottom: 8px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="name">{{ name }}</div>
+            <div class="contact">
+                {{ email }} | {{ phone }} | {{ location }}<br>
+                <a href="{{ linkedin }}">LinkedIn</a> | <a href="{{ github }}">GitHub</a>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-title">Professional Summary</div>
+            <div>{{ experience_summary }}</div>
+        </div>
+        <div class="section">
+            <div class="section-title">Education</div>
+            {% for edu in educations %}
+            <div><b>{{ edu.degree }}</b>, {{ edu.institution }} ({{ edu.year }})</div>
+            {% endfor %}
+        </div>
+        <div class="section">
+            <div class="section-title">Work Experience</div>
+            {% for exp in experiences %}
+            <div><b>{{ exp.role }}</b>, {{ exp.company }} ({{ exp.years }})
+                <ul>
+                {% for ach in exp.achievements.split(',') %}
+                    <li>{{ ach.strip() }}</li>
+                {% endfor %}
+                </ul>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="section">
+            <div class="section-title">Skills</div>
+            <div class="skills">
+                {% for skill in skills.split(',') %}
+                    <span class="skill">{{ skill.strip() }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% if projects %}
+        <div class="section">
+            <div class="section-title">Projects</div>
+            <div class="projects">{{ projects }}</div>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html> 
