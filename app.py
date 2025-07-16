@@ -8,6 +8,20 @@ from streamlit_authenticator.utilities.hasher import Hasher  # ← NEW import
 from utils.ai_resume import generate_resume_content
 from utils.pdf_export import html_to_pdf
 from utils.portfolio import generate_portfolio_html
+import json
+import os
+
+USERS_FILE = "users.json"
+
+def load_users():
+    if os.path.exists(USERS_FILE):
+        with open(USERS_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+def save_users(users):
+    with open(USERS_FILE, "w") as f:
+        json.dump(users, f)
 
 # --------------------------------------------------------------------------
 # Page‑wide settings (must be the first Streamlit call)
@@ -18,7 +32,7 @@ st.set_page_config(page_title="AutoCV AI – Smart Resume Builder",
 
 # --- Authentication (Sign Up & Login) ---
 if 'users' not in st.session_state:
-    st.session_state['users'] = {}
+    st.session_state['users'] = load_users()
 if 'auth_mode' not in st.session_state:
     st.session_state['auth_mode'] = 'login'  # or 'signup'
 if 'logged_in_user' not in st.session_state:
@@ -41,6 +55,7 @@ def signup_form():
                 st.error('Username already exists.')
             else:
                 st.session_state['users'][username] = {'name': name, 'password': password}
+                save_users(st.session_state['users'])
                 st.success('Account created! Please log in.')
                 st.session_state['auth_mode'] = 'login'
 
@@ -102,27 +117,53 @@ if 'form_data' not in st.session_state:
 #  Pages & components
 # --------------------------------------------------------------------------
 def landing_page():
+    # Add custom CSS for circular logo
     st.markdown("""
-    <div style='text-align:center;'>
-        <img src='static/logo.png' width='100'/>
-        <h1>AutoCV AI</h1>
-        <h3>Smart Resume Generator for African Developers</h3>
-        <p style='color:#666;'>Create a professional, AI-powered resume in minutes. Choose a template, let AI write your summary, and download a beautiful PDF.</p>
-    </div>
-    <br/>
-    <h4>Testimonials</h4>
-    <ul>
-        <li><b>Mary K.</b>: "AutoCV AI made my job search so much easier!"</li>
-        <li><b>James O.</b>: "The AI summary was spot on. Highly recommended."</li>
-    </ul>
-    <h4>FAQ</h4>
-    <b>Is it free?</b> Yes!<br/>
-    <b>Can I edit my resume?</b> Absolutely.<br/>
-    <b>Is my data private?</b> 100% – nothing is stored.<br/>
-    <br/>
+        <style>
+        .autocv-logo {
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            width: 180px;
+            height: 180px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 4px solid #e0c36a;
+            background: #111;
+            box-shadow: 0 2px 12px #0002;
+        }
+        .autocv-landing {
+            max-width: 500px;
+            margin: 0 auto;
+            text-align: center;
+            padding-top: 16px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    # Logo at the very top
+    st.markdown('<div class="autocv-landing">', unsafe_allow_html=True)
+    st.image('static/logo.png', width=180, output_format="auto")
+    st.markdown("""
+        <h1 style='margin-bottom:0.2em;'>AutoCV AI</h1>
+        <h3 style='margin-top:0;'>Smart Resume Generator for Developers</h3>
+        <p style='color:#666; margin-bottom:2em;'>Create a professional, AI-powered resume in minutes. Choose a template, let AI write your summary, and download a beautiful PDF.</p>
+        <hr style='margin:2em 0 1.5em 0;'/>
+        <h4>Testimonials</h4>
+        <ul style='text-align:left; display:inline-block;'>
+            <li><b>Mary K.</b>: "AutoCV AI made my job search so much easier!"</li>
+            <li><b>James O.</b>: "The AI summary was spot on. Highly recommended."</li>
+        </ul>
+        <h4>FAQ</h4>
+        <div style='text-align:left; display:inline-block;'>
+        <b>Is it free?</b> Yes!<br/>
+        <b>Can I edit my resume?</b> Absolutely.<br/>
+        <b>Is my data private?</b> 100% – nothing is stored.<br/>
+        </div>
+        <br/><br/>
     """, unsafe_allow_html=True)
     if st.button("Start Building My Resume"):
         st.session_state.step = 1
+    st.markdown('</div>', unsafe_allow_html=True)
 
 def show_live_preview():
     templates = {"Modern": "modern.html", "Classic": "classic.html"}
@@ -260,7 +301,7 @@ st.markdown(
     """
     <hr/>
     <div style='text-align:center;font-size:0.9em;color:#888;'>
-        © 2025 AutoCV AI — Smart Resume Generator for African Developers
+        © 2025 AutoCV AI — Smart Resume Generator
     </div>
     """,
     unsafe_allow_html=True

@@ -34,13 +34,6 @@ AutoCV AI is a web app that helps you generate a professional, AI-powered resume
    streamlit run app.py
    ```
 
----
-
-## 🖼️ Branding
-- Place your logo in `static/logo.png` (optional)
-
----
-
 ## 📝 Customization
 - Edit `resume_templates/modern.html` for your own resume style
 - To use OpenAI, update `utils/ai_resume.py` with your API logic
