@@ -123,19 +123,105 @@ def landing_page():
             padding: 1.5rem;
             margin: 1rem 0;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            color: #222;
+        }
+        @media (prefers-color-scheme: dark) {
+            .feature-card {
+                background: #222;
+                color: #f3f3f3;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+            }
+        }
+        .logo-container {
+            display: flex;
+            justify-content: center;
+            margin: 0 auto 2rem auto;
+            max-width: 100%;
+        }
+        .logo-wrapper {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%);
+            border-radius: 16px;
+            padding: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .logo-img {
+            border-radius: 8px;
+            object-fit: contain;
+            height: auto;
+            transition: transform 0.3s ease;
+        }
+        .logo-wrapper:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+        }
+        @media (prefers-color-scheme: dark) {
+            .logo-wrapper {
+                background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                border: 1px solid rgba(255,255,255,0.05);
+            }
+        }
+        @media (max-width: 768px) {
+            .logo-wrapper {
+                padding: 8px;
+                border-radius: 12px;
+            }
         }
         </style>
     """, unsafe_allow_html=True)
-    
+
     with st.container():
-        st.markdown('<div class="landing-container">', unsafe_allow_html=True)
-        st.image("https://via.placeholder.com/150", width=150)
-        st.title("AutoCV AI")
         st.markdown("""
-            ### Smart Resume Generator for Developers
-            Create a professional, ATS-friendly resume in minutes with AI-powered suggestions
-        """)
-        
+        <style>
+        .logo-container {
+            display: flex;
+            justify-content: center;
+            margin: 0 auto 2rem auto;
+            max-width: 100%;
+        }
+        .logo-container img {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%);
+            border-radius: 16px;
+            padding: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.2);
+            width: 75px;
+            height: auto;
+            object-fit: contain;
+        }
+        .logo-container img:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+        }
+        @media (prefers-color-scheme: dark) {
+            .logo-container img {
+                background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                border: 1px solid rgba(255,255,255,0.05);
+            }
+        }
+        @media (max-width: 768px) {
+            .logo-container img {
+                padding: 8px;
+                border-radius: 12px;
+            }
+        }
+        </style>
+        <div class="logo-container">
+        """, unsafe_allow_html=True)
+        st.image("static/logo.png", width=75)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown("""
+        <h1 style='text-align: center; margin-bottom: 0.5rem;'>AutoCV AI</h1>
+        <h3 style='text-align: center; margin-top: 0; color: #4b5563;'>
+            Smart Resume Generator for Developers
+        </h3>
+        """, unsafe_allow_html=True)
+
         cols = st.columns(3)
         with cols[0]:
             st.markdown("""
@@ -158,12 +244,10 @@ def landing_page():
                 <p>Print-ready resumes every time</p>
                 </div>
             """, unsafe_allow_html=True)
-        
+
         if st.button("Start Building My Resume →", type="primary"):
             st.session_state.step = 1
             st.rerun()
-        
-        st.markdown('</div>', unsafe_allow_html=True)
 
 def personal_info_form():
     st.header("Step 1: Personal Information")
