@@ -1,18 +1,28 @@
-# app.py  – AutoCV AI ⸻ Smart Resume Generator
+# app.py – AutoCV AI — Smart Resume Generator
 # --------------------------------------------------
 import streamlit as st
 from jinja2 import Environment, FileSystemLoader
 import re
-import streamlit_authenticator as stauth
-from streamlit_authenticator.utilities.hasher import Hasher  # ← NEW import
-from utils.ai_resume import generate_resume_content
-from utils.pdf_export import html_to_pdf
-from utils.portfolio import generate_portfolio_html
 import json
 import os
+from utils.ai_resume import generate_resume_content
+from utils.pdf_export import generate_pdf
+from utils.portfolio import generate_portfolio_html
+from datetime import datetime
 
+# --------------------------------------------------------------------------
+# Configuration
+# --------------------------------------------------------------------------
 USERS_FILE = "users.json"
+RESUME_TEMPLATES = {
+    "Modern Professional": "modern.html",
+    "Classic Elegant": "classic.html", 
+    "Tech Minimalist": "minimalist.html"
+}
 
+# --------------------------------------------------------------------------
+# Authentication Functions
+# --------------------------------------------------------------------------
 def load_users():
     if os.path.exists(USERS_FILE):
         with open(USERS_FILE, "r") as f:
@@ -24,284 +34,404 @@ def save_users(users):
         json.dump(users, f)
 
 # --------------------------------------------------------------------------
-# Page‑wide settings (must be the first Streamlit call)
+# Page Setup (must be first Streamlit command)
 # --------------------------------------------------------------------------
-st.set_page_config(page_title="AutoCV AI – Smart Resume Builder",
-                   page_icon="static/logo.png",
-                   layout="centered")
-
-# --- Authentication (Sign Up & Login) ---
-if 'users' not in st.session_state:
-    st.session_state['users'] = load_users()
-if 'auth_mode' not in st.session_state:
-    st.session_state['auth_mode'] = 'login'  # or 'signup'
-if 'logged_in_user' not in st.session_state:
-    st.session_state['logged_in_user'] = None
-
-def signup_form():
-    st.subheader('Sign Up')
-    with st.form('signup_form'):
-        username = st.text_input('Username')
-        name = st.text_input('Full Name')
-        password = st.text_input('Password', type='password')
-        confirm = st.text_input('Confirm Password', type='password')
-        submitted = st.form_submit_button('Create Account')
-        if submitted:
-            if not username or not name or not password or not confirm:
-                st.error('All fields are required.')
-            elif password != confirm:
-                st.error('Passwords do not match.')
-            elif username in st.session_state['users']:
-                st.error('Username already exists.')
-            else:
-                st.session_state['users'][username] = {'name': name, 'password': password}
-                save_users(st.session_state['users'])
-                st.success('Account created! Please log in.')
-                st.session_state['auth_mode'] = 'login'
-
-def login_form():
-    st.subheader('Login')
-    with st.form('login_form'):
-        username = st.text_input('Username')
-        password = st.text_input('Password', type='password')
-        submitted = st.form_submit_button('Login')
-        if submitted:
-            user = st.session_state['users'].get(username)
-            if not user or user['password'] != password:
-                st.error('Invalid username or password.')
-            else:
-                st.session_state['logged_in_user'] = username
-                st.success(f'Welcome, {user["name"]}!')
-                st.session_state['step'] = 0
-
-if st.session_state['logged_in_user'] is None:
-    st.sidebar.title('Account')
-    if st.session_state['auth_mode'] == 'login':
-        login_form()
-        st.sidebar.write("Don't have an account?")
-        if st.sidebar.button('Sign Up'):
-            st.session_state['auth_mode'] = 'signup'
-    else:
-        signup_form()
-        st.sidebar.write('Already have an account?')
-        if st.sidebar.button('Back to Login'):
-            st.session_state['auth_mode'] = 'login'
-    st.stop()
-
-# --------------------------------------------------------------------------
-# Theme toggle (light ↔ dark)
-# --------------------------------------------------------------------------
-def _apply_theme():
-    if hasattr(st, 'experimental_set_theme'):
-        st.experimental_set_theme({'base': st.session_state['theme']})
-
-if 'theme' not in st.session_state:
-    st.session_state['theme'] = 'light'
-
-st.sidebar.markdown("## Settings")
-st.session_state['theme'] = st.sidebar.radio(
-    "Theme", ["light", "dark"],
-    index=0 if st.session_state['theme'] == "light" else 1
+st.set_page_config(
+    page_title="AutoCV AI – Smart Resume Builder",
+    page_icon="📄",
+    layout="centered",
+    initial_sidebar_state="expanded"
 )
-_apply_theme()
 
 # --------------------------------------------------------------------------
-#  State helpers
+# Session State Initialization
 # --------------------------------------------------------------------------
+if 'users' not in st.session_state:
+    st.session_state.users = load_users()
+if 'auth_mode' not in st.session_state:
+    st.session_state.auth_mode = 'login'
+if 'logged_in_user' not in st.session_state:
+    st.session_state.logged_in_user = None
 if 'step' not in st.session_state:
-    st.session_state.step = 0            # 0 = landing
+    st.session_state.step = 0
 if 'form_data' not in st.session_state:
     st.session_state.form_data = {}
+if 'selected_template' not in st.session_state:
+    st.session_state.selected_template = "Modern Professional"
 
 # --------------------------------------------------------------------------
-#  Pages & components
+# Authentication UI
+# --------------------------------------------------------------------------
+def show_auth_ui():
+    st.sidebar.title("Account")
+    
+    if st.session_state.auth_mode == 'login':
+        with st.sidebar.form("login_form"):
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            if st.form_submit_button("Login"):
+                user = st.session_state.users.get(username)
+                if user and user['password'] == password:
+                    st.session_state.logged_in_user = username
+                    st.session_state.step = 0
+                    st.rerun()
+                else:
+                    st.sidebar.error("Invalid credentials")
+        st.sidebar.write("Don't have an account?")
+        if st.sidebar.button("Sign Up"):
+            st.session_state.auth_mode = 'signup'
+            
+    else:  # Signup mode
+        with st.sidebar.form("signup_form"):
+            username = st.text_input("Username")
+            name = st.text_input("Full Name")
+            password = st.text_input("Password", type="password")
+            confirm = st.text_input("Confirm Password", type="password")
+            if st.form_submit_button("Create Account"):
+                if password != confirm:
+                    st.sidebar.error("Passwords don't match")
+                elif username in st.session_state.users:
+                    st.sidebar.error("Username already exists")
+                else:
+                    st.session_state.users[username] = {
+                        'name': name,
+                        'password': password,
+                        'created_at': datetime.now().isoformat()
+                    }
+                    save_users(st.session_state.users)
+                    st.session_state.auth_mode = 'login'
+                    st.sidebar.success("Account created! Please log in")
+        st.sidebar.write("Already have an account?")
+        if st.sidebar.button("Back to Login"):
+            st.session_state.auth_mode = 'login'
+
+# --------------------------------------------------------------------------
+# Resume Generation Pages
 # --------------------------------------------------------------------------
 def landing_page():
-    # Add custom CSS for circular logo
     st.markdown("""
         <style>
-        .autocv-logo {
-            display: block;
-            margin-left: auto;
-            margin-right: auto;
-            width: 180px;
-            height: 180px;
-            object-fit: cover;
-            border-radius: 50%;
-            border: 4px solid #e0c36a;
-            background: #111;
-            box-shadow: 0 2px 12px #0002;
-        }
-        .autocv-landing {
-            max-width: 500px;
+        .landing-container {
+            max-width: 700px;
             margin: 0 auto;
             text-align: center;
-            padding-top: 16px;
+            padding-top: 2rem;
+        }
+        .feature-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
         </style>
     """, unsafe_allow_html=True)
-    # Logo at the very top
-    st.markdown('<div class="autocv-landing">', unsafe_allow_html=True)
-    st.image('static/logo.png', width=180, output_format="auto")
-    st.markdown("""
-        <h1 style='margin-bottom:0.2em;'>AutoCV AI</h1>
-        <h3 style='margin-top:0;'>Smart Resume Generator for Developers</h3>
-        <p style='color:#666; margin-bottom:2em;'>Create a professional, AI-powered resume in minutes. Choose a template, let AI write your summary, and download a beautiful PDF.</p>
-        <hr style='margin:2em 0 1.5em 0;'/>
-        <h4>Testimonials</h4>
-        <ul style='text-align:left; display:inline-block;'>
-            <li><b>Mary K.</b>: "AutoCV AI made my job search so much easier!"</li>
-            <li><b>James O.</b>: "The AI summary was spot on. Highly recommended."</li>
-        </ul>
-        <h4>FAQ</h4>
-        <div style='text-align:left; display:inline-block;'>
-        <b>Is it free?</b> Yes!<br/>
-        <b>Can I edit my resume?</b> Absolutely.<br/>
-        <b>Is my data private?</b> 100% – nothing is stored.<br/>
-        </div>
-        <br/><br/>
-    """, unsafe_allow_html=True)
-    if st.button("Start Building My Resume"):
-        st.session_state.step = 1
-    st.markdown('</div>', unsafe_allow_html=True)
-
-def show_live_preview():
-    templates = {"Modern": "modern.html", "Classic": "classic.html"}
-    tmpl_name = st.session_state.get('selected_template', 'Modern')
-    env = Environment(loader=FileSystemLoader('resume_templates'))
-    preview_data = {**st.session_state.form_data, **generate_resume_content(st.session_state.form_data)}
-    # Ensure all required fields exist
-    for key in ["skills", "projects", "educations", "experiences"]:
-        if key not in preview_data:
-            preview_data[key] = "" if key in ["skills", "projects"] else []
-    html = env.get_template(templates[tmpl_name]).render(**preview_data)
-    st.markdown("#### Live Resume Preview")
-    st.components.v1.html(html, height=500, scrolling=True)
+    
+    with st.container():
+        st.markdown('<div class="landing-container">', unsafe_allow_html=True)
+        st.image("https://via.placeholder.com/150", width=150)
+        st.title("AutoCV AI")
+        st.markdown("""
+            ### Smart Resume Generator for Developers
+            Create a professional, ATS-friendly resume in minutes with AI-powered suggestions
+        """)
+        
+        cols = st.columns(3)
+        with cols[0]:
+            st.markdown("""
+                <div class="feature-card">
+                <h4>🚀 AI-Powered</h4>
+                <p>Get optimized content suggestions</p>
+                </div>
+            """, unsafe_allow_html=True)
+        with cols[1]:
+            st.markdown("""
+                <div class="feature-card">
+                <h4>🎨 Multiple Templates</h4>
+                <p>Choose from professional designs</p>
+                </div>
+            """, unsafe_allow_html=True)
+        with cols[2]:
+            st.markdown("""
+                <div class="feature-card">
+                <h4>📄 Perfect PDFs</h4>
+                <p>Print-ready resumes every time</p>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        if st.button("Start Building My Resume →", type="primary"):
+            st.session_state.step = 1
+            st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
 def personal_info_form():
-    st.header("Step 1: Personal Information")
-    c1, c2 = st.columns(2)
-
-    with c1:
+    st.header("Step 1: Personal Information")
+    
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
         with st.form("personal_info"):
-            name      = st.text_input("Full Name",  value=st.session_state.form_data.get('name', ''))
-            email     = st.text_input("Email",      value=st.session_state.form_data.get('email', ''))
-            phone     = st.text_input("Phone",      value=st.session_state.form_data.get('phone', ''))
-            location  = st.text_input("Location",   value=st.session_state.form_data.get('location', ''))
-            linkedin  = st.text_input("LinkedIn",   value=st.session_state.form_data.get('linkedin', ''))
-            github    = st.text_input("GitHub",     value=st.session_state.form_data.get('github', ''))
-            if st.form_submit_button("Next"):
-                if not name or not re.fullmatch(r"[^@]+@[^@]+\.[^@]+", email):
-                    st.error("Please provide a valid name and email.")
+            st.session_state.form_data['name'] = st.text_input(
+                "Full Name", 
+                value=st.session_state.form_data.get('name', '')
+            )
+            st.session_state.form_data['email'] = st.text_input(
+                "Email", 
+                value=st.session_state.form_data.get('email', '')
+            )
+            st.session_state.form_data['phone'] = st.text_input(
+                "Phone", 
+                value=st.session_state.form_data.get('phone', '')
+            )
+            st.session_state.form_data['location'] = st.text_input(
+                "Location", 
+                value=st.session_state.form_data.get('location', '')
+            )
+            st.session_state.form_data['linkedin'] = st.text_input(
+                "LinkedIn URL", 
+                value=st.session_state.form_data.get('linkedin', '')
+            )
+            st.session_state.form_data['github'] = st.text_input(
+                "GitHub URL", 
+                value=st.session_state.form_data.get('github', '')
+            )
+            st.session_state.form_data['headline'] = st.text_input(
+                "Professional Headline", 
+                value=st.session_state.form_data.get('headline', '')
+            )
+            
+            if st.form_submit_button("Next →"):
+                if not st.session_state.form_data['name']:
+                    st.error("Please enter your name")
+                elif not re.match(r"[^@]+@[^@]+\.[^@]+", st.session_state.form_data['email']):
+                    st.error("Please enter a valid email")
                 else:
-                    st.session_state.form_data.update(
-                        dict(name=name, email=email, phone=phone,
-                             location=location, linkedin=linkedin, github=github))
                     st.session_state.step = 2
-    with c2:
+                    st.rerun()
+    
+    with col2:
         show_live_preview()
 
 def experience_education_form():
     st.header("Step 2: Experience & Education")
-    cols = st.columns([1, 1])
-    with cols[0]:
-        # --- Education Section ---
+    
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        # Education Section
+        st.subheader("Education")
         if 'educations' not in st.session_state.form_data:
             st.session_state.form_data['educations'] = []
-        st.markdown("**Education**")
-        edu_to_remove = st.selectbox(
-            "Remove education entry:",
-            ["None"] + [f"{e['degree']} at {e['institution']}" for e in st.session_state.form_data['educations']],
-            key="edu_remove_selectbox"
-        )
-        if edu_to_remove != "None":
-            st.session_state.form_data['educations'] = [e for e in st.session_state.form_data['educations'] if f"{e['degree']} at {e['institution']}" != edu_to_remove]
-        with st.form("add_edu_form"):
-            degree = st.text_input("Degree (e.g., BSc Computer Science)", key="degree_input")
-            institution = st.text_input("Institution (e.g., University of Nairobi)", key="institution_input")
-            year = st.text_input("Year (e.g., 2022)", key="year_input")
-            add_edu = st.form_submit_button("Add Education")
-            if add_edu and degree and institution and year:
-                st.session_state.form_data['educations'].append({"degree": degree, "institution": institution, "year": year})
-        # --- Experience Section ---
+            
+        for i, edu in enumerate(st.session_state.form_data['educations']):
+            with st.expander(f"{edu.get('degree', '')} at {edu.get('institution', '')}"):
+                st.session_state.form_data['educations'][i]['degree'] = st.text_input(
+                    "Degree", 
+                    value=edu.get('degree', ''),
+                    key=f"edu_degree_{i}"
+                )
+                st.session_state.form_data['educations'][i]['institution'] = st.text_input(
+                    "Institution", 
+                    value=edu.get('institution', ''),
+                    key=f"edu_institution_{i}"
+                )
+                st.session_state.form_data['educations'][i]['year'] = st.text_input(
+                    "Year", 
+                    value=edu.get('year', ''),
+                    key=f"edu_year_{i}"
+                )
+                if st.button("Remove", key=f"remove_edu_{i}"):
+                    st.session_state.form_data['educations'].pop(i)
+                    st.rerun()
+        
+        with st.form("add_education"):
+            new_degree = st.text_input("Degree (e.g., BSc Computer Science)", key="new_degree")
+            new_institution = st.text_input("Institution", key="new_institution")
+            new_year = st.text_input("Year", key="new_year")
+            if st.form_submit_button("Add Education"):
+                if new_degree and new_institution and new_year:
+                    st.session_state.form_data['educations'].append({
+                        'degree': new_degree,
+                        'institution': new_institution,
+                        'year': new_year
+                    })
+                    st.rerun()
+        
+        # Experience Section
+        st.subheader("Work Experience")
         if 'experiences' not in st.session_state.form_data:
             st.session_state.form_data['experiences'] = []
-        st.markdown("**Work Experience**")
-        exp_to_remove = st.selectbox(
-            "Remove experience entry:",
-            ["None"] + [f"{e['role']} at {e['company']}" for e in st.session_state.form_data['experiences']],
-            key="exp_remove_selectbox"
+            
+        for i, exp in enumerate(st.session_state.form_data['experiences']):
+            with st.expander(f"{exp.get('role', '')} at {exp.get('company', '')}"):
+                st.session_state.form_data['experiences'][i]['role'] = st.text_input(
+                    "Job Title", 
+                    value=exp.get('role', ''),
+                    key=f"exp_role_{i}"
+                )
+                st.session_state.form_data['experiences'][i]['company'] = st.text_input(
+                    "Company", 
+                    value=exp.get('company', ''),
+                    key=f"exp_company_{i}"
+                )
+                st.session_state.form_data['experiences'][i]['years'] = st.text_input(
+                    "Years", 
+                    value=exp.get('years', ''),
+                    key=f"exp_years_{i}"
+                )
+                st.session_state.form_data['experiences'][i]['achievements'] = st.text_area(
+                    "Achievements (one per line)", 
+                    value=exp.get('achievements', ''),
+                    key=f"exp_achievements_{i}"
+                )
+                if st.button("Remove", key=f"remove_exp_{i}"):
+                    st.session_state.form_data['experiences'].pop(i)
+                    st.rerun()
+        
+        with st.form("add_experience"):
+            new_role = st.text_input("Job Title", key="new_role")
+            new_company = st.text_input("Company", key="new_company")
+            new_years = st.text_input("Years (e.g., 2020-2023)", key="new_years")
+            new_achievements = st.text_area("Achievements (one per line)", key="new_achievements")
+            if st.form_submit_button("Add Experience"):
+                if new_role and new_company and new_years:
+                    st.session_state.form_data['experiences'].append({
+                        'role': new_role,
+                        'company': new_company,
+                        'years': new_years,
+                        'achievements': new_achievements
+                    })
+                    st.rerun()
+        
+        # Skills Section
+        st.subheader("Skills")
+        st.session_state.form_data['skills'] = st.text_area(
+            "List your skills (comma separated)",
+            value=st.session_state.form_data.get('skills', ''),
+            height=100
         )
-        if exp_to_remove != "None":
-            st.session_state.form_data['experiences'] = [e for e in st.session_state.form_data['experiences'] if f"{e['role']} at {e['company']}" != exp_to_remove]
-        with st.form("add_exp_form"):
-            role = st.text_input("Role (e.g., Software Engineer)", key="role_input")
-            company = st.text_input("Company (e.g., Google)", key="company_input")
-            years = st.text_input("Years (e.g., 2020-2023)", key="years_input")
-            achievements = st.text_area("Achievements (comma-separated)", key="achievements_input")
-            add_exp = st.form_submit_button("Add Experience")
-            if add_exp and role and company and years:
-                st.session_state.form_data['experiences'].append({"role": role, "company": company, "years": years, "achievements": achievements})
-        # --- Skills & Projects ---
-        skills = st.text_area("Skills (comma-separated)", value=st.session_state.form_data.get('skills', ''), key="skills_input")
-        projects = st.text_area("Projects (optional)", value=st.session_state.form_data.get('projects', ''), key="projects_input")
-        submitted = st.button("Next", key="next_button")
-        if submitted:
-            if not st.session_state.form_data['educations'] or not st.session_state.form_data['experiences'] or not skills:
-                st.error("Please add at least one education, one experience, and skills.")
+        
+        if st.button("Continue to Final Step →"):
+            if not st.session_state.form_data.get('educations'):
+                st.error("Please add at least one education entry")
+            elif not st.session_state.form_data.get('experiences'):
+                st.error("Please add at least one work experience")
             else:
-                st.session_state.form_data['skills'] = skills
-                st.session_state.form_data['projects'] = projects
                 st.session_state.step = 3
-    with cols[1]:
+                st.rerun()
+    
+    with col2:
         show_live_preview()
 
-def generate_resume():
-    st.header("Step 3: Generate & Download Resume")
-    templates = {"Modern": "modern.html", "Classic": "classic.html"}
-    if 'selected_template' not in st.session_state:
-        st.session_state.selected_template = "Modern"
-    st.session_state.selected_template = st.selectbox(
-        "Choose a template", list(templates.keys()),
-        index=list(templates.keys()).index(st.session_state.selected_template))
-    with st.spinner("Crafting your AI‑powered resume…"):
-        fd = st.session_state.form_data
-        fd.update(generate_resume_content(fd))
-        # Ensure all required fields exist
-        for key in ["skills", "projects", "educations", "experiences"]:
-            if key not in fd:
-                fd[key] = "" if key in ["skills", "projects"] else []
-        tmpl = Environment(loader=FileSystemLoader('resume_templates')) \
-               .get_template(templates[st.session_state.selected_template])
-        html_resume = tmpl.render(**fd)
-        st.components.v1.html(html_resume, height=850, scrolling=True)
-        # PDF
-        pdf_bytes = html_to_pdf(html_resume)
-        st.download_button("Download PDF", pdf_bytes,
-                           file_name="AutoCV_Resume.pdf", mime="application/pdf")
-        # Portfolio
-        portfolio_html = generate_portfolio_html(fd)
-        st.download_button("Download Portfolio HTML", portfolio_html,
-                           file_name="portfolio.html", mime="text/html")
-    st.success("All set! 🎉 Download your resume or portfolio above.")
+def show_live_preview():
+    st.subheader("Live Preview")
+    env = Environment(loader=FileSystemLoader('resume_templates'))
+    try:
+        html = env.get_template(
+            RESUME_TEMPLATES[st.session_state.selected_template]
+        ).render(**st.session_state.form_data)
+        st.components.v1.html(html, height=600, scrolling=True)
+    except Exception as e:
+        st.error(f"Preview error: {str(e)}")
+
+def generate_resume_page():
+    st.header("Step 3: Generate Your Resume")
+    
+    st.session_state.use_ai = st.checkbox(
+        "Enable AI Enhancements", 
+        value=True,
+        help="Get AI-powered improvements to your resume content"
+    )
+    
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        st.session_state.selected_template = st.selectbox(
+            "Choose Template",
+            list(RESUME_TEMPLATES.keys()),
+            index=list(RESUME_TEMPLATES.keys()).index(st.session_state.selected_template)
+        )
+        
+        # Customization options
+        with st.expander("Design Options"):
+            st.session_state.form_data['font_size'] = st.slider(
+                "Font Size", 10, 14, 12
+            )
+            st.session_state.form_data['primary_color'] = st.color_picker(
+                "Primary Color", "#0a6"
+            )
+            st.session_state.form_data['line_spacing'] = st.slider(
+                "Line Spacing", 1.0, 2.0, 1.6, 0.1
+            )
+    
+    with col2:
+        show_live_preview()
+    
+    # Generate final output
+    if st.button("Generate Resume PDF", type="primary"):
+        with st.spinner("Creating your professional resume..."):
+            try:
+                # Generate AI content if enabled
+                if st.session_state.use_ai:
+                    st.session_state.form_data.update(
+                        generate_resume_content(st.session_state.form_data)
+                    )
+
+                # Render HTML
+                env = Environment(loader=FileSystemLoader('resume_templates'))
+                html = env.get_template(
+                    RESUME_TEMPLATES[st.session_state.selected_template]
+                ).render(**st.session_state.form_data)
+
+                # Generate PDF
+                pdf_bytes = generate_pdf(html)
+
+                # Show download button
+                st.success("Resume generated successfully!")
+                st.download_button(
+                    "💾 Download PDF",
+                    pdf_bytes,
+                    file_name=f"{st.session_state.form_data.get('name', 'resume')}.pdf",
+                    mime="application/pdf"
+                )
+
+                # Show HTML option
+                with st.expander("Advanced Options"):
+                    st.download_button(
+                        "📄 Download HTML",
+                        html.encode('utf-8'),
+                        file_name="resume.html",
+                        mime="text/html"
+                    )
+
+            except Exception as e:
+                st.error(f"Error generating resume: {str(e)}")
 
 # --------------------------------------------------------------------------
-#  Page router
+# Main App Router
 # --------------------------------------------------------------------------
+if not st.session_state.logged_in_user:
+    show_auth_ui()
+    st.stop()
+
+# Main pages
 match st.session_state.step:
     case 0: landing_page()
     case 1: personal_info_form()
     case 2: experience_education_form()
-    case _: generate_resume()
+    case 3: generate_resume_page()
 
 # --------------------------------------------------------------------------
-#  Footer
+# Footer
 # --------------------------------------------------------------------------
+st.markdown("---")
 st.markdown(
     """
-    <hr/>
-    <div style='text-align:center;font-size:0.9em;color:#888;'>
-        © 2025 AutoCV AI — Smart Resume Generator
+    <div style="text-align: center; color: #666; font-size: 0.9em;">
+    AutoCV AI • Professional Resume Generator • 
+    <a href="#" style="color: #666;">Terms</a> • 
+    <a href="#" style="color: #666;">Privacy</a>
     </div>
     """,
     unsafe_allow_html=True

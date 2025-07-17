@@ -1,4 +1,4 @@
-# AutoCV AI – Smart Resume Generator for African Developers
+# AutoCV AI – Smart Resume Generator for Developers
 
 AutoCV AI is a modern web app that helps you generate a professional, AI-powered resume in seconds. Input your details, let AI craft your summary, and download a beautiful PDF CV or a personal portfolio website. Built with Python, Streamlit, and Jinja2.
 
