@@ -4,6 +4,12 @@ AutoCV AI is a modern web app that helps you generate a professional, AI-powered
 
 ---
 
+## 🎥 Demo
+
+[Watch the demo video](https://drive.google.com/file/d/19nYCiGnB6IIkfJyEFqUUvhQRs77Stm72/view?usp=drivesdk)
+
+---
+
 ## 🚀 Features
 - Multi-step form for personal, education, and work details
 - AI-generated professional summary (OpenAI integration or fallback to dummy content)
@@ -80,7 +86,3 @@ Pull requests are welcome! For major changes, please open an issue first to disc
 
 ## 📄 License
 MIT 
-
-## Demo
-
-[Watch the demo video](https://drive.google.com/file/d/19nYCiGnB6IIkfJyEFqUUvhQRs77Stm72/view?usp=drivesdk) 
