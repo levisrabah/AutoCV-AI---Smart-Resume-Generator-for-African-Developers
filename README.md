@@ -80,3 +80,7 @@ Pull requests are welcome! For major changes, please open an issue first to disc
 
 ## 📄 License
 MIT 
+
+## Demo
+
+[Watch the demo video](https://drive.google.com/file/d/19nYCiGnB6IIkfJyEFqUUvhQRs77Stm72/view?usp=drivesdk) 
